@@ -33,7 +33,7 @@ age <- read_xlsx("covid_mort_spatseg/2018_pop_ests.xlsx", sheet =4, skip=4)
 age$`<25` <- rowSums(age[,4:8])
 age$`25-44` <- rowSums(age[,9:12])
 age$`45-64` <- rowSums(age[,13:16])
-age$`65-75` <- rowSums(age[,17:18])
+age$`65-74` <- rowSums(age[,17:18])
 age$`75+` <- rowSums(age[19:22])
 
 # Generate proportion variables
