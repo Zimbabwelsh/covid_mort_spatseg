@@ -27,4 +27,27 @@ df <- df[,-c(2,3)]
 #melt data for single row per observation, can group by variables otherswise
 mdf <- melt(df, id="cd")
 
-age <- read_xlsx("2018_pop_ests.xlsx", sheet =4, skip=4)
+## Read age data
+age <- read_xlsx("covid_mort_spatseg/2018_pop_ests.xlsx", sheet =4, skip=4)
+# Create age-band proportions <25, 25-44, 45-65, 65-75, 75+
+age$`<25` <- rowSums(age[,4:8])
+age$`25-44` <- rowSums(age[,9:12])
+age$`45-64` <- rowSums(age[,13:16])
+age$`65-75` <- rowSums(age[,17:18])
+age$`75+` <- rowSums(age[19:22])
+
+# Generate proportion variables
+age$`<25prop` <- age$`<25`/age$`All Ages`
+age$`25-44prop` <- age$`25-44`/age$`All Ages`
+age$`45-64prop` <- age$`45-64`/age$`All Ages`
+age$`65-74prop` <- age$`65-74`/age$`All Ages`
+age$`75+prop` <- age$`75+`/age$`All Ages`
+
+# drop constituent cols
+age <- age[,-c(2,4:27)]
+
+# Copy age profile for each MSOA 
+master <- left_join(mdf, age, by=c("cd"="Area Codes"))
+
+# Write outfile
+write_csv(master, "MSOAmort.csv")
