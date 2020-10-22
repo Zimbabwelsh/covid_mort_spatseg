@@ -51,3 +51,14 @@ master <- left_join(mdf, age, by=c("cd"="Area Codes"))
 
 # Write outfile
 write_csv(master, "MSOAmort.csv")
+
+### create the offset (grouping by month and type of death)
+mort <- mort %>% group_by(variable) %>% 
+  ### first find total population
+  mutate(total_pop = sum(`All Ages`),
+         ### then total deaths
+         total_death = sum(value),
+         ### expected value is total deaths divided by total population times population of msoa
+         expected = (total_death/total_pop)*`All Ages`,
+         ### offset is log of this value
+         offset = log(expected))
