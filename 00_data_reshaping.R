@@ -8,7 +8,7 @@ library(tidyverse)
 library(readxl)
 library(reshape2)
 
-setwd('C:/00RESEARCH/repo/COVID_spatial_inequalities/')
+setwd('C:/00RESEARCH/repo/COVID_spatial_inequalities/covid_mort_spatseg/')
 
 #Read in data
 df <- read_xlsx("death_counts_MSOA.xlsx", sheet=8, skip=11)
@@ -28,7 +28,7 @@ df <- df[,-c(2,3)]
 mdf <- melt(df, id="cd")
 
 ## Read age data
-age <- read_xlsx("covid_mort_spatseg/2018_pop_ests.xlsx", sheet =4, skip=4)
+age <- read_xlsx("2018_pop_ests.xlsx", sheet =4, skip=4)
 # Create age-band proportions <25, 25-44, 45-65, 65-75, 75+
 age$`<25` <- rowSums(age[,4:8])
 age$`25-44` <- rowSums(age[,9:12])
@@ -49,16 +49,18 @@ age <- age[,-c(2,4:27)]
 # Copy age profile for each MSOA 
 master <- left_join(mdf, age, by=c("cd"="Area Codes"))
 
-# Write outfile
-write_csv(master, "MSOAmort.csv")
-
-### create the offset (grouping by month and type of death)
-mort <- mort %>% group_by(variable) %>% 
+mort <- master %>% group_by(variable) %>% 
   ### first find total population
   mutate(total_pop = sum(`All Ages`),
          ### then total deaths
-         total_death = sum(value),
+         total_death = sum(as.numeric(value)),
          ### expected value is total deaths divided by total population times population of msoa
          expected = (total_death/total_pop)*`All Ages`,
          ### offset is log of this value
          offset = log(expected))
+
+# Write outfile
+write_csv(mort, "MSOAmort.csv")
+
+### create the offset (grouping by month and type of death)
+
