@@ -59,8 +59,118 @@ mort <- master %>% group_by(variable) %>%
          ### offset is log of this value
          offset = log(expected))
 
-# Write outfile
-write_csv(mort, "MSOAmort.csv")
+#######
+# Integrate with STP shapefiles.
+#######
+
+
+### read in file linking lsoa to stp
+lsoa_ccg <- read_csv("lsoa_ccg.csv")
+#### read in the IMD data
+IMD <- read_csv("IMD.csv")
+lsoa_ccg <- inner_join(lsoa_ccg, IMD, by = c("LSOA11CD" = "LSOA code (2011)"))
+lsoa_ccg <- lsoa_ccg %>% 
+  group_by(STP19CD) %>% 
+  mutate(avgIMDstp = mean(`Index of Multiple Deprivation (IMD) Rank`))
+
+### a file of imd data just for stp
+stp_imd <- lsoa_ccg %>% 
+  select(STP19CD, avgIMDstp) %>% 
+  distinct(STP19CD, .keep_all = TRUE)
+
+### read in file linking msoa to lsoa
+msoa_lsoa <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
+  distinct(LSOA11CD, .keep_all = T) %>% 
+  select(LSOA11CD,MSOA11CD, MSOA11NM,LAD17CD, LAD17NM, RGN11CD,RGN11NM)
+
+
+msoa_lsoa <- left_join(msoa_lsoa, IMD, by = c("LSOA11CD" = "LSOA code (2011)"))
+
+### add the deprivation data
+msoa_lsoa <- msoa_lsoa %>% 
+  group_by(RGN11CD) %>% 
+  mutate(avgIMDreg = mean(`Index of Multiple Deprivation (IMD) Rank`)) %>% 
+  ungroup() %>% 
+  group_by(LAD17CD) %>% 
+  mutate(avgIMDlad = mean(`Index of Multiple Deprivation (IMD) Rank`)) %>%
+  ungroup() %>% 
+  group_by(MSOA11CD) %>% 
+  mutate(avgIMDmsoa = mean(`Index of Multiple Deprivation (IMD) Rank`))
+
+
+
+### join two together usin lsoa as key
+msoa_stp <- left_join(lsoa_ccg,msoa_lsoa, by = "LSOA11CD")
+
+
+
+### there is a slight problem here because 17 MSOAs are in different STPs
+### because this is a very small number and to make life easier/
+### for the purpose of this analysis we will asign each MSOA to the STP/
+### within within which the majority of the lsoas within that msoa are part of
+### this code does this and matches each MSOA with exactly one STP
+msoa_stp <- msoa_stp %>% 
+  group_by(MSOA11CD) %>% 
+  count(STP19CD, STP19NM) %>% 
+  ungroup() %>% 
+  arrange(MSOA11CD,-n) %>% 
+  distinct(MSOA11CD, .keep_all = T)
+
+msoa_stp <- left_join(msoa_stp, stp_imd, by = "STP19CD")
+
+
+
+### we can now rejoin this with the MSOA data
+areas <- left_join(msoa_lsoa,msoa_stp, by = "MSOA11CD") %>% 
+  distinct(MSOA11CD, .keep_all = T) %>% 
+  select(MSOA11CD, MSOA11NM, RGN11CD, RGN11NM,STP19CD, STP19NM, LAD17CD, LAD17NM, avgIMDreg, avgIMDlad, avgIMDmsoa, avgIMDstp)
+
+### stps are for england for wales there are health boards
+wales_healthboard <- read_csv("wales_lad_healthboard.csv")
+
+areas <- left_join(areas, wales_healthboard, by = c("LAD17CD" = "UA19CD"))
+
+areas$STP19CD[is.na(areas$STP19CD)] <- areas$LHB19CD[is.na(areas$STP19CD)]
+areas$STP19NM[is.na(areas$STP19NM)] <- areas$LHB19NM[is.na(areas$STP19NM)]
+areas <- areas %>% select(-c(FID,UA19NM, LHB19NM, LHB19CD, LHB19NM)) %>% 
+  filter(RGN11NM != "Scotland")
+
+### Join with MSOA deaths data
+mortareas <- left_join(mort,areas, by = c("cd"  = "MSOA11CD"))
+
+
+
 
 ### create the offset (grouping by month and type of death)
+
+mortareas <- mortareas %>% group_by(variable) %>% 
+  ### first find total population
+  mutate(total_pop = sum(`All Ages`),
+         ### then total deaths
+         total_death = sum(as.numeric(value)),
+         ### expected value is total deaths divided by total population times population of msoa
+         expected = (total_death/total_pop)*`All Ages`,
+         ### offset is log of this value
+         offset = log(expected))
+
+#######
+### Integrate Care Home counts from NOMIS (KS405EW)
+#######
+
+carehomes <- read.csv('careHomes.csv', skip=8, h=T) %>% drop_na()
+colnames(carehomes) <- c("nm", "cd", "lach", "othnurs", "othnonurs")
+
+### Create total population in carehomes in MSOA
+
+carehomes <- carehomes %>% mutate(chtotal = lach + othnurs + othnonurs)
+
+### Merge with master dataset
+
+modeldata <- merge(mortareas, carehomes[,c(2,6)], by="cd", all.x=TRUE)
+modeldata <- modeldata %>% mutate(percCH = (chtotal/All.Ages)*100)
+
+### write to csv
+write_csv(modeldata, "model_data_imd.csv")
+
+
 
