@@ -2,7 +2,7 @@ library(data.table)
 library(ggplot2)
 
 setwd("C:/Users/gg9824/Dropbox/00ESRC Fellowship/Projects/COVID19/COVID Inequalities/Final Models")
-MCMC <- fread("1b output.csv")
+MCMC <- fread("1a output.csv")
 
 ### For calculation
 # N of iterations in MCMC samplers
@@ -22,7 +22,7 @@ coefs <- rcoefs+fcoefs
 ests <- nrow(MCMC)/iter
 
 # Calc size of variance matrix
-size <- (rcoefs*(rcoefs+1))/2
+size <- ((rcoefs*(rcoefs+1))/2)-rcoefs
 
 # Calc N of random estimates
 rests <- size*levels
@@ -80,8 +80,77 @@ areavars <- ggplot(data=varests, aes(x=Month,y=Median, colour=level))+
 
 areavars
 
-ggsave("1bVariances.png")
+ggsave("1aVariances.png")
+
+### CYS CODE
 
 ### Producing and plotting correlations 
 covarlist <- varlist[-variances]
+rawcovars <- df[covarlist]
 
+## Create empty matrix
+rawcorrs <- matrix(0, nrow(rawcovars), ncol(rawcovars))
+
+## Generate sequences for looping
+start_var <- seq(1, ncol(rawvars), by=rcoefs)
+end_var <- seq(rcoefs, ncol(rawvars), by=rcoefs)
+
+start_covar <- seq(1,ncol(rawcovars), by=((rcoefs*(rcoefs+1))/2)-rcoefs)
+end_covar <- seq(((rcoefs*(rcoefs+1))/2)-rcoefs,ncol(rawcovars), by=((rcoefs*(rcoefs+1))/2)-rcoefs)
+
+ptm <- proc.time()
+
+for (i in 1:nrow(rawcovars)){
+  for(j in 1:levels){
+    
+    cor_mat <- matrix(0,rcoefs,rcoefs)
+    
+    var_mat <- diag(rawvars[i,start_var[j]:end_var[j]], rcoefs, rcoefs)
+    
+    var_mat[upper.tri(var_mat, diag = F)] <- as.numeric(rawcovars[i,start_covar[j]:end_covar[j]])
+    
+    rand_cor <- cov2cor(t(var_mat))
+    
+    cor_byrow <- t(rand_cor)
+    
+    rawcorrs[i,start_covar[j]:end_covar[j]] <- cor_byrow[upper.tri(cor_byrow, diag = F)]
+    
+  }
+}
+
+RunTime<-proc.time() - ptm
+
+# 
+# cor_mat<-matrix(0, nrow(rawcovars), ncol(rawcovars))
+# rawcovars <- (df[covarlist])
+# 
+# for(k in 1:ncol(rawcolvars))
+#   for(j in 1: ncol(rawcovars)){
+#     {
+#       cor_mat[,1]<-
+#     }
+#   }
+# {
+#   
+# }
+# rawcovars[1,1]
+# 
+# 
+# for (i in 1:ncol(rawcovars)){
+#     n <- rawcovars[,[i]]/sqrt(rawvars[paste("V",covarlist[i], sep="")])*sqrt(rawvars[,3])
+#       df$corr[i] <- n
+# }
+# 
+# 
+# var1 <- list()
+# for (i in 1:5){
+#   for (j in 1:i){
+#     append(j)
+#   }
+# }
+# repeat{  
+#   variances <- append(variances, variances+max(variances))
+#   if (length(variances)==(rcoefs*levels)){
+#     break
+#   }
+# }
