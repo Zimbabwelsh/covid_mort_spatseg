@@ -1,5 +1,8 @@
 library(data.table)
 library(ggplot2)
+library(tidyverse)
+library(corrplot)
+library(gridExtra)
 
 setwd("C:/Users/gg9824/Dropbox/00ESRC Fellowship/Projects/COVID19/COVID Inequalities/Final Models")
 MCMC <- fread("1a output.csv")
@@ -21,7 +24,7 @@ coefs <- rcoefs+fcoefs
 # Calc number of parameter estimates in iteration
 ests <- nrow(MCMC)/iter
 
-# Calc size of variance matrix
+# Calc size of variance matrix minus diagonal
 size <- ((rcoefs*(rcoefs+1))/2)-rcoefs
 
 # Calc N of random estimates
@@ -119,6 +122,31 @@ for (i in 1:nrow(rawcovars)){
 }
 
 RunTime<-proc.time() - ptm
+
+covarests <- transpose(as.data.frame(apply(rawcorrs, 2, quantile, probs = quants)))
+
+colnames(covarests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
+# Generate level-names variable and ensure factor to maintain order for plotting
+covarests$level <- rev(rep(levnames, each=size))
+covarests$level <- factor(covarests$level, levels = levnames)
+
+# Generate list of matrices to iterate over for output
+covarmatlist <- vector("list", length(levels))
+
+for (i in 1:levels){
+  covarmat <- matrix(0,5,5)
+  covarmat[upper.tri(covarmat)] <- covarests$Median[((i-1)*10)+1:(10*i)]
+  covarmatlist[[i]] <- t(covarmat)
+}
+
+for (element in covarmatlist){
+  corrplot(element, type = "lower", is.corr=TRUE)
+}
+
+
+# plots = lapply(covarmatlist, function(.x) corrplot(covarmat, type = "lower", is.corr=TRUE))
+# 
+# 
 
 # 
 # cor_mat<-matrix(0, nrow(rawcovars), ncol(rawcovars))
