@@ -48,11 +48,13 @@ varlist <- varlist[-c(seq(coefs))]
 variances <- vector()
 maxval=ncol(df)
 
-# Generate vector of variance locations for one level
-for (i in 1:rcoefs){
-  val <- sum(seq(1:i))
-  variances[[length(variances)+1]] <- val
+# Generate function for triangle numbers to index variances
+trino <- function(n){
+  sapply(1:n, function(x) sum(1:x))
 }
+
+variances <-  trino(rcoefs)
+
 # Repeat for all levels
 repeat{  
   variances <- append(variances, variances+max(variances))
@@ -100,12 +102,6 @@ ggsave("1bVariances.png")
 covarlist <- varlist[-variances]
 rawcovars <- df[covarlist]
 
-# Generate function for triangle numbers to index variances
-trino <- function(n){
-  sapply(1:n, function(x) sum(1:x))
-}
-
-diag <-  trino(rcoefs)
 
 # Create first list to index first variances for correlation calculation
 # Function to create repeating ascending list (1,1,2,1,2,3...)
@@ -114,6 +110,8 @@ cvseq <- function(n){
     map(~seq(1, ., 1)) %>%
     unlist()
 }
+
+diag <- trino(rcoefs)
 
 # Covarseq gives the first variance location for each covariance 
 covarseq1 <- diag[cvseq(rcoefs-1)]
