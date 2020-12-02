@@ -67,11 +67,16 @@ quants <- c(0.025,0.05,0.50,0.95,0.975)
 # Dataset of solely variance iteration estimates
 rawvars <- df[,varlist[variances]]
 # Take quantiles from "quants" and apply to rawvars
-varests <- transpose(as.data.frame(apply(rawvars, 2, quantile, probs = quants)))
+varests <- as.data.frame(apply(rawvars, 2, quantile, probs = quants))
+varests <- varests %>%
+  tibble::rownames_to_column() %>%  
+  pivot_longer(-rowname) %>% 
+  pivot_wider(names_from=rowname, values_from=value)
+varests <- varests[,-1]
 # Rename Cols to something sensible
 colnames(varests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
 # 
-MRRests <- exp(sqrt(2*varests[,-c(6,7)])*0.6745)
+MRRests <- exp(sqrt(2*varests)*0.6745)
 # Generate level-names variable and ensure factor to maintain order for plotting
 MRRests$level <- rev(rep(levnames, each=rcoefs))
 MRRests$level <- factor(MRRests$level, levels = levnames)
