@@ -5,7 +5,7 @@ library(corrplot)
 library(gridExtra)
 
 setwd("C:/Users/gg9824/Dropbox/00ESRC Fellowship/Projects/COVID19/COVID Inequalities/Final Models")
-MCMC <- fread("1a output.csv")
+MCMC <- fread("1b output.csv")
 
 ### For calculation
 # N of iterations in MCMC samplers
@@ -18,6 +18,8 @@ levnames <- c("MSOA", "LAD", "STP", "Region")
 fcoefs <- 4
 # N of random coefficients
 rcoefs <- 5
+# Random Coefficient Names
+rcoefnames <- c("March", "April", "May", "June", "July")
 # Total coefs
 coefs <- rcoefs+fcoefs
 
@@ -68,80 +70,158 @@ rawvars <- df[,varlist[variances]]
 varests <- transpose(as.data.frame(apply(rawvars, 2, quantile, probs = quants)))
 # Rename Cols to something sensible
 colnames(varests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
+# 
+MRRests <- exp(sqrt(2*varests[,-c(6,7)])*0.6745)
 # Generate level-names variable and ensure factor to maintain order for plotting
-varests$level <- rev(rep(levnames, each=rcoefs))
-varests$level <- factor(varests$level, levels = levnames)
+MRRests$level <- rev(rep(levnames, each=rcoefs))
+MRRests$level <- factor(MRRests$level, levels = levnames)
 # Generate months
-varests$Month <- rep(3:7, levels)
+MRRests$Month <- rep(3:7, levels)
 
 # Produce ggplot graphic
-areavars <- ggplot(data=varests, aes(x=Month,y=Median, colour=level))+
+areavars <- ggplot(data=MRRests, aes(x=Month,y=Median, colour=level))+
   geom_line()+ 
-  ylim(0,2)+
+  ylim(1,4)+
   geom_ribbon(aes(ymin=Lower, ymax=Upper), linetype=3, alpha=0.1) +
   facet_grid(~level)
 
 areavars
 
-ggsave("1aVariances.png")
+ggsave("1bVariances.png")
 
-### CYS CODE
+
 
 ### Producing and plotting correlations 
 covarlist <- varlist[-variances]
 rawcovars <- df[covarlist]
 
-## Create empty matrix
-rawcorrs <- matrix(0, nrow(rawcovars), ncol(rawcovars))
+# Generate function for triangle numbers to index variances
+trino <- function(n){
+  sapply(1:n, function(x) sum(1:x))
+}
 
-## Generate sequences for looping
-start_var <- seq(1, ncol(rawvars), by=rcoefs)
-end_var <- seq(rcoefs, ncol(rawvars), by=rcoefs)
+diag <-  trino(rcoefs)
 
-start_covar <- seq(1,ncol(rawcovars), by=((rcoefs*(rcoefs+1))/2)-rcoefs)
-end_covar <- seq(((rcoefs*(rcoefs+1))/2)-rcoefs,ncol(rawcovars), by=((rcoefs*(rcoefs+1))/2)-rcoefs)
+# Create first list to index first variances for correlation calculation
+# Function to create repeating ascending list (1,1,2,1,2,3...)
+cvseq <- function(n){
+  seq(1, n, 1) %>%
+    map(~seq(1, ., 1)) %>%
+    unlist()
+}
 
-ptm <- proc.time()
+# Covarseq gives the first variance location for each covariance 
+covarseq1 <- diag[cvseq(rcoefs-1)]
 
-for (i in 1:nrow(rawcovars)){
-  for(j in 1:levels){
-    
-    cor_mat <- matrix(0,rcoefs,rcoefs)
-    
-    var_mat <- diag(rawvars[i,start_var[j]:end_var[j]], rcoefs, rcoefs)
-    
-    var_mat[upper.tri(var_mat, diag = F)] <- as.numeric(rawcovars[i,start_covar[j]:end_covar[j]])
-    
-    rand_cor <- cov2cor(t(var_mat))
-    
-    cor_byrow <- t(rand_cor)
-    
-    rawcorrs[i,start_covar[j]:end_covar[j]] <- cor_byrow[upper.tri(cor_byrow, diag = F)]
-    
+# Add total size of v/cv matrix and repeat until list is 40 elements 
+repeat{
+  covarseq1 <- append(covarseq1, tail(covarseq1, size)+(size+rcoefs))
+  if (length(covarseq1)==rests){
+    break
   }
 }
 
-RunTime<-proc.time() - ptm
+covarseq1 <- covarseq1+coefs
 
-covarests <- transpose(as.data.frame(apply(rawcorrs, 2, quantile, probs = quants)))
+# Create second list to index second variances for correlation calculation
 
-colnames(covarests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
+# Take elements of triangle numbers in form 1, 2, 2, 3, 3, 3...
+covarseq2 <- diag[(rep(1:(rcoefs-1), 1:(rcoefs-1))+1)]
+
+# Extend using same approach as above
+repeat{
+  covarseq2 <- append(covarseq2, tail(covarseq2, size)+(size+rcoefs))
+  if (length(covarseq2)==rests){
+    break
+  }
+}
+
+covarseq2 <- covarseq2+coefs
+
+##########
+# Combine lists to calculate correlations for each covariance estimate and store in rawcorrs
+
+rawcorrs <- as.data.frame(matrix(0, iter, rests))
+
+for (i in 1:length(covarlist)){
+  rawcorrs[i] <- df[,covarlist[i]]/(sqrt(df[,covarseq1[i]])*sqrt(df[,covarseq2[i]]))
+}
+
+corrests <- as.data.frame(apply(rawcorrs, 2, quantile, probs = quants))
+corrests <- corrests %>%
+  tibble::rownames_to_column() %>%  
+  pivot_longer(-rowname) %>% 
+  pivot_wider(names_from=rowname, values_from=value)
+corrests <- corrests[,-1]
+
+
+############# To here seems to work BUT some nonsensical correlations (V16) - check code in morning.
+
+colnames(corrests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
 # Generate level-names variable and ensure factor to maintain order for plotting
-covarests$level <- rev(rep(levnames, each=size))
-covarests$level <- factor(covarests$level, levels = levnames)
+corrests$level <- rev(rep(levnames, each=size))
+corrests$level <- factor(corrests$level, levels = levnames)
 
 # Generate list of matrices to iterate over for output
 covarmatlist <- vector("list", length(levels))
 
+# Generate lower-triangle covariance matrix, without diagonal
 for (i in 1:levels){
-  covarmat <- matrix(0,5,5)
-  covarmat[upper.tri(covarmat)] <- covarests$Median[((i-1)*10)+1:(10*i)]
+  covarmat <- matrix(0,rcoefs,rcoefs)
+  covarmat[upper.tri(covarmat)] <- corrests$Median[((i-1)*size)+1:(size*i)]
+  # diag(covarmat) <- varests$Median[(((i-1)*rcoefs)+1):(rcoefs*i)]
+  rownames(covarmat) <- rcoefnames
   covarmatlist[[i]] <- t(covarmat)
 }
 
 for (element in covarmatlist){
   corrplot(element, type = "lower", is.corr=TRUE)
 }
+
+ par(mfrow=c(4,1))
+ corrplot(covarmatlist[[1]], type = "lower", is.corr=TRUE)
+ title("Region", line = -2, adj=0.6)
+ corrplot(covarmatlist[[2]], type = "lower", is.corr=TRUE)
+ title("STP", line = -2, adj=0.6)
+ corrplot(covarmatlist[[3]], type = "lower", is.corr=TRUE)
+ title("LAD", line = -2, adj=0.6)
+ corrplot(covarmatlist[[4]], type = "lower", is.corr=TRUE)
+ title("MSOA", line = -2, adj=0.6)
+
+ 
+ 
+ ### CYS CODE
+# ## Create empty matrix
+# rawcorrs <- matrix(0, nrow(rawcovars), ncol(rawcovars))
+# 
+# ## Generate sequences for looping
+# start_var <- seq(1, ncol(rawvars), by=rcoefs)
+# end_var <- seq(rcoefs, ncol(rawvars), by=rcoefs)
+# 
+# start_covar <- seq(1,ncol(rawcovars), by=((rcoefs*(rcoefs+1))/2)-rcoefs)
+# end_covar <- seq(((rcoefs*(rcoefs+1))/2)-rcoefs,ncol(rawcovars), by=((rcoefs*(rcoefs+1))/2)-rcoefs)
+# 
+# ptm <- proc.time()
+# 
+# for (i in 1:nrow(rawcovars)){
+#   for(j in 1:levels){
+#     
+#     cor_mat <- matrix(0,rcoefs,rcoefs)
+#     
+#     var_mat <- diag(rawvars[i,start_var[j]:end_var[j]], rcoefs, rcoefs)
+#     
+#     var_mat[upper.tri(var_mat, diag = F)] <- as.numeric(rawcovars[i,start_covar[j]:end_covar[j]])
+#     
+#     rand_cor <- cov2cor(t(var_mat))
+#     
+#     cor_byrow <- t(rand_cor)
+#     
+#     rawcorrs[i,start_covar[j]:end_covar[j]] <- cor_byrow[upper.tri(cor_byrow, diag = F)]
+#     
+#   }
+# }
+# 
+# RunTime<-proc.time() - ptm
 
 
 # plots = lapply(covarmatlist, function(.x) corrplot(covarmat, type = "lower", is.corr=TRUE))
