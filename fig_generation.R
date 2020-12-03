@@ -5,7 +5,7 @@ library(corrplot)
 library(gridExtra)
 
 setwd("C:/Users/gg9824/Dropbox/00ESRC Fellowship/Projects/COVID19/COVID Inequalities/Final Models")
-MCMC <- fread("1b output.csv")
+MCMC <- fread("6a output.csv")
 
 ### For calculation
 # N of iterations in MCMC samplers
@@ -15,7 +15,7 @@ levels <- 4
 # Name levels
 levnames <- c("MSOA", "LAD", "STP", "Region")
 # N of fixed coefficients
-fcoefs <- 4
+fcoefs <- 24
 # N of random coefficients
 rcoefs <- 5
 # Random Coefficient Names
@@ -94,7 +94,7 @@ areavars <- ggplot(data=MRRests, aes(x=Month,y=Median, colour=level))+
 
 areavars
 
-ggsave("1bVariances.png")
+ggsave("6aVariances.png")
 
 
 
