@@ -60,7 +60,6 @@ mort <- master %>% group_by(variable) %>%
          ### offset is log of this value
          offset = log(expected))
 
-
 #######
 # Integrate with STP shapefiles.
 #######
@@ -106,10 +105,13 @@ stp_imd <- lsoa_ccg %>%
   distinct(STP19CD, .keep_all = TRUE)
 
 
+=======
+
 ### read in file linking msoa to lsoa
 msoa_lsoa <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
   distinct(LSOA11CD, .keep_all = T) %>% 
   select(LSOA11CD,MSOA11CD, MSOA11NM,LAD17CD, LAD17NM, RGN11CD,RGN11NM)
+
 
 ### join ttwas
 ttwas <- read_csv("LSOA2011toTTWA2011.csv")
@@ -146,8 +148,7 @@ msoa_stp <- left_join(msoa_lsoa, lsoa_ccg, by = "LSOA11CD")
 
 
 ### there is a slight problem here because 17 MSOAs are in different STPs
-### because this is a very small number and to make life easier/
-### for the purpose of this analysis we will asign each MSOA to the STP/
+### for the purpose of this analysis we will assign each MSOA to the STP/
 ### within within which the majority of the lsoas within that msoa are part of
 ### this code does this and matches each MSOA with exactly one STP
 msoa_stp <- msoa_stp %>% 
@@ -171,19 +172,6 @@ areas <- left_join(msoa_lsoa,msoa_stp, by = "MSOA11CD") %>%
 ### Join with MSOA deaths data
 mort <- read_csv("MSOAmort.csv")
 mortareas <- left_join(mort,areas, by = c("cd"  = "MSOA11CD"))
-
-
-
-mortareas <- mortareas %>% group_by(variable) %>% 
-  ### first find total population
-  mutate(total_pop = sum(`All Ages`),
-         ### then total deaths
-         total_death = sum(as.numeric(value)),
-         ### expected value is total deaths divided by total population times population of msoa
-         expected = (total_death/total_pop)*`All Ages`,
-         ### offset is log of this value
-         offset = log(expected))
-
 
 #### add care home data
 care_homes <- st_read("Geolytix_UK_Care_Homes_2020.shp")
@@ -214,3 +202,4 @@ mortareas <- left_join(mortareas, care_home_msoa, by = c("cd" = "MSOA11CD"))
 
 ### write to csv
 write_csv(mortareas, "model_data_ukimd.csv")
+
