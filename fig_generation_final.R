@@ -5,7 +5,7 @@ library(corrplot)
 library(gridExtra)
 
 setwd("C:/Users/gg9824/Dropbox/00ESRC Fellowship/Projects/COVID19/COVID Inequalities/Final Models/Finalfinal Models")
-MCMC <- fread("2a1 output.csv")
+MCMC <- fread("1A output.csv")
 
 ### For calculation
 # N of iterations in MCMC samplers
@@ -15,7 +15,7 @@ levels <- 4
 # Name levels
 levnames <- c("MSOA", "LAD", "STP", "Region")
 # N of fixed coefficients
-fcoefs <- 29
+fcoefs <- 14
 # N of random coefficients
 rcoefs <- 5
 # Random Coefficient Names
@@ -63,43 +63,43 @@ repeat{
   }
 }
 
-# # Take just variance estimates, and calculate quantiles
-# quants <- c(0.025,0.05,0.50,0.95,0.975)
-# 
-# # Dataset of solely variance iteration estimates
-# rawvars <- df[,varlist[variances]]
-# # Take quantiles from "quants" and apply to rawvars
-# varests <- as.data.frame(apply(rawvars, 2, quantile, probs = quants))
-# varests <- varests %>%
-#   tibble::rownames_to_column() %>%  
-#   pivot_longer(-rowname) %>% 
-#   pivot_wider(names_from=rowname, values_from=value)
-# varests <- varests[,-1]
-# # Rename Cols to something sensible
-# colnames(varests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
-# # 
-# MRRests <- exp(sqrt(2*varests)*0.6745)
-# # Generate level-names variable and ensure factor to maintain order for plotting
-# MRRests$level <- rev(rep(levnames, each=rcoefs))
-# MRRests$level <- factor(MRRests$level, levels = levnames)
-# # Generate months
-# MRRests$Month <- rep(3:7, levels)
-# MRRests$type <- "Non COVID-19"
-# 
-# ncovMRRs <- MRRests
-# 
-# MRRestsMod1 <- bind_rows(list(covMRRs, ncovMRRs))
-# 
-# # Produce ggplot graphic
-# areavars <- ggplot(data=MRRestsMod1, aes(x=Month,y=Median, colour=level))+
-#   geom_line()+ 
-#   ylim(1,6)+
-#   geom_ribbon(aes(ymin=Lower, ymax=Upper), linetype=3, alpha=0.1) +
-#   facet_grid(type~level)
-# 
-# areavars
-# 
-# ggsave("Model1MRRs.png")
+# Take just variance estimates, and calculate quantiles
+quants <- c(0.025,0.05,0.50,0.95,0.975)
+
+# Dataset of solely variance iteration estimates
+rawvars <- df[,varlist[variances]]
+# Take quantiles from "quants" and apply to rawvars
+varests <- as.data.frame(apply(rawvars, 2, quantile, probs = quants))
+varests <- varests %>%
+  tibble::rownames_to_column() %>%
+  pivot_longer(-rowname) %>%
+  pivot_wider(names_from=rowname, values_from=value)
+varests <- varests[,-1]
+# Rename Cols to something sensible
+colnames(varests) <- c("Lower", "Lower 0.05", "Median", "Upper 0.95", "Upper")
+#
+MRRests <- exp(sqrt(2*varests)*0.6745)
+# Generate level-names variable and ensure factor to maintain order for plotting
+MRRests$level <- rev(rep(levnames, each=rcoefs))
+MRRests$level <- factor(MRRests$level, levels = levnames)
+# Generate months
+MRRests$Month <- rep(3:7, levels)
+MRRests$type <- "Non COVID-19"
+
+ncovMRRs <- MRRests
+
+MRRestsMod1 <- bind_rows(list(covMRRs, ncovMRRs))
+
+# Produce ggplot graphic
+areavars <- ggplot(data=MRRestsMod1, aes(x=Month,y=Median, colour=level))+
+  geom_line()+
+  ylim(1,6)+
+  geom_ribbon(aes(ymin=Lower, ymax=Upper), linetype=3, alpha=0.1) +
+  facet_grid(type~level)
+
+areavars
+
+ggsave("Model1MRRs.png")
 
 
 
@@ -213,4 +213,4 @@ ggplot(data = correstsMod2,
   ### create 2 by 4 plot with each level as row starting with region (fct_rev)
   facet_grid(fct_rev(level)~type) 
 
-ggsave("Model2MortCorrs.png")
+ggsave("Model1MortCorrs.png")

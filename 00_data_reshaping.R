@@ -60,6 +60,23 @@ mort <- master %>% group_by(variable) %>%
          ### offset is log of this value
          offset = log(expected))
 
+## To generate Summary counts graphic
+# counts <- mort %>% group_by(variable) %>% count(total_death) %>% select(-n)
+# counts <- counts[-c(6,12:18),]
+# counts <- counts %>% mutate(group = case_when(grepl("n", variable) ~ "Non-COVID",
+#                                              TRUE ~ "COVID-19"))
+# counts$month <- factor(rep(c("March", "April", "May", "June", "July"),2),
+#                        levels = c("March", "April", "May", "June", "July"))
+# 
+# mort_counts <- ggplot(data=counts, aes(month, total_death))+
+#                       geom_col(colour="black", fill="#3b5a9d")+
+#                       facet_wrap(~group)+
+#                       labs(x="Month", y = "Count of Deaths")
+  #
+
+
+
+
 #######
 # Integrate with STP shapefiles.
 #######
@@ -105,7 +122,6 @@ stp_imd <- lsoa_ccg %>%
   distinct(STP19CD, .keep_all = TRUE)
 
 
-=======
 
 ### read in file linking msoa to lsoa
 msoa_lsoa <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
