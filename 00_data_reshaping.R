@@ -60,6 +60,23 @@ mort <- master %>% group_by(variable) %>%
          ### offset is log of this value
          offset = log(expected))
 
+## To generate Summary counts graphic
+# counts <- mort %>% group_by(variable) %>% count(total_death) %>% select(-n)
+# counts <- counts[-c(6,12:18),]
+# counts <- counts %>% mutate(group = case_when(grepl("n", variable) ~ "Non-COVID",
+#                                              TRUE ~ "COVID-19"))
+# counts$month <- factor(rep(c("March", "April", "May", "June", "July"),2),
+#                        levels = c("March", "April", "May", "June", "July"))
+# 
+# mort_counts <- ggplot(data=counts, aes(month, total_death))+
+#                       geom_col(colour="black", fill="#3b5a9d")+
+#                       facet_wrap(~group)+
+#                       labs(x="Month", y = "Count of Deaths")
+#
+
+
+
+
 #######
 # Integrate with STP shapefiles.
 #######
@@ -77,6 +94,9 @@ wales_healthboard <- read_csv("wales_lad_healthboard.csv") %>%
 area_lookups <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
   distinct(LSOA11CD, .keep_all = T) %>% 
   select(LSOA11CD, LSOA11NM, LAD17CD, LAD17NM)
+
+### vale of glamorgan needs to be "The vale of glamorgan" to match with local authority files later on
+wales_healthboard$LAD17NM[wales_healthboard$LAD17NM == "Vale of Glamorgan"] <-  "The Vale of Glamorgan"
 
 wales_healthboard <- inner_join(wales_healthboard, area_lookups, by = c("LAD17CD", "LAD17NM")) %>% 
   rename("LAD19CD" = "LAD17CD",
@@ -105,7 +125,6 @@ stp_imd <- lsoa_ccg %>%
   distinct(STP19CD, .keep_all = TRUE)
 
 
-=======
 
 ### read in file linking msoa to lsoa
 msoa_lsoa <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
@@ -202,4 +221,3 @@ mortareas <- left_join(mortareas, care_home_msoa, by = c("cd" = "MSOA11CD"))
 
 ### write to csv
 write_csv(mortareas, "model_data_ukimd.csv")
-
