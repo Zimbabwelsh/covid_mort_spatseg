@@ -1,9 +1,3 @@
-## Recoding MSOA death counts
-
-## while(!try(require(tidyverse), silent = TRUE)) install.packages("tidyverse")
-## while(!try(require(readxl), silent = TRUE)) install.packages("readxl")  
-
-
 library(tidyverse)
 library(readxl)
 library(reshape2)
@@ -129,12 +123,15 @@ stp_imd <- lsoa_ccg %>%
 ### read in file linking msoa to lsoa
 msoa_lsoa <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
   distinct(LSOA11CD, .keep_all = T) %>% 
-  select(LSOA11CD,MSOA11CD, MSOA11NM,LAD17CD, LAD17NM, RGN11CD,RGN11NM)
+  select(LSOA11CD,MSOA11CD, MSOA11NM,LAD17CD, LAD17NM)
 
 
 ### join ttwas
 ttwas <- read_csv("LSOA2011toTTWA2011.csv")
-ttwas <- ttwas %>% select(LSOA11CD, TTWA11CD, TTWA11NM)
+### first join ttwas to region
+ttwa_region <- read_csv("ttwa_region.csv")
+ttwas <- inner_join(ttwas, ttwa_region, by = c("TTWA11CD", "TTWA11NM"))
+ttwas <- ttwas %>% select(LSOA11CD, TTWA11CD, TTWA11NM, RGN11NM, RGN11CD)
 msoa_lsoa <- left_join(msoa_lsoa, ttwas, by = "LSOA11CD")
 
 ### join with deprviation data
@@ -144,8 +141,8 @@ msoa_lsoa <- left_join(msoa_lsoa, UKIMD, by = c("LSOA11CD" = "area_code"))
 ### add the deprivation data
 msoa_lsoa <- msoa_lsoa %>% 
   group_by(RGN11CD) %>% 
-  mutate(avgIMDreg = mean(`Index of Multiple Deprivation (IMD) Rank`),
-         avgUKIMDreg = mean(uk_imd_england_score)) %>% 
+  mutate(avgIMDreg = mean(`Index of Multiple Deprivation (IMD) Rank`, na.rm = T),
+         avgUKIMDreg = mean(uk_imd_england_score, na.rm = T)) %>% 
   ungroup() %>% 
   group_by(LAD17CD) %>% 
   mutate(avgIMDlad = mean(`Index of Multiple Deprivation (IMD) Rank`),
@@ -153,7 +150,7 @@ msoa_lsoa <- msoa_lsoa %>%
   ungroup() %>% 
   group_by(TTWA11CD) %>% 
   mutate(avgIMDttwa = mean(`Index of Multiple Deprivation (IMD) Rank`, na.rm =T),
-         avgUKIMDttwa = mean(uk_imd_england_score)) %>%
+         avgUKIMDttwa = mean(uk_imd_england_score, na.rm = T)) %>%
   ungroup() %>% 
   group_by(MSOA11CD) %>% 
   mutate(avgIMDmsoa = mean(`Index of Multiple Deprivation (IMD) Rank`),
@@ -185,7 +182,7 @@ areas <- left_join(msoa_lsoa,msoa_stp, by = "MSOA11CD") %>%
   distinct(MSOA11CD, .keep_all = T) %>% 
   select(MSOA11CD, MSOA11NM, RGN11CD, RGN11NM,STP19CD, STP19NM, LAD17CD, LAD17NM, TTWA11CD, TTWA11NM, 
          avgIMDreg, avgIMDlad, avgIMDmsoa, avgIMDstp, avgIMDttwa, avgUKIMDreg, avgUKIMDlad, avgUKIMDmsoa, avgUKIMDstp, avgUKIMDttwa) %>% 
-  filter(RGN11NM != "Scotland")
+  filter(RGN11NM != "Scotland" & !is.na(STP19NM))
 
 
 ### Join with MSOA deaths data
@@ -219,5 +216,9 @@ care_home_msoa <- left_join(msoa, care_home_msoa, by = "msoa11cd") %>%
 #### join this with the rest of the data
 mortareas <- left_join(mortareas, care_home_msoa, by = c("cd" = "MSOA11CD"))
 
+
 ### write to csv
 write_csv(mortareas, "model_data_ukimd.csv")
+
+
+  
