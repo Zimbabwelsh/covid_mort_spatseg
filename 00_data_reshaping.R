@@ -11,6 +11,8 @@ library(sf)
 
 setwd('C:/00RESEARCH/repo/COVID_spatial_inequalities/covid_mort_spatseg/')
 
+#Read in mortality counts data - available from https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/datasets/deathsduetocovid19bylocalareaanddeprivation
+
 #Read in data
 df <- read_xlsx("death_counts_MSOA.xlsx", sheet=8, skip=11)
 #Drop weird empty ONS columns
@@ -29,6 +31,7 @@ df <- df[,-c(2,3)]
 mdf <- melt(df, id="cd")
 
 ## Read age data
+# Derived from https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/middlesuperoutputareamidyearpopulationestimates/mid2018sape21dt3a/sape21dt3amid2018msoaon2019lasyoaestimatesformatted.zip
 age <- read_xlsx("2018_pop_ests.xlsx", sheet =4, skip=4)
 # Create age-band proportions <25, 25-44, 45-65, 65-75, 75+
 age$`<25` <- rowSums(age[,4:8])
@@ -60,28 +63,14 @@ mort <- master %>% group_by(variable) %>%
          ### offset is log of this value
          offset = log(expected))
 
-## To generate Summary counts graphic
-# counts <- mort %>% group_by(variable) %>% count(total_death) %>% select(-n)
-# counts <- counts[-c(6,12:18),]
-# counts <- counts %>% mutate(group = case_when(grepl("n", variable) ~ "Non-COVID",
-#                                              TRUE ~ "COVID-19"))
-# counts$month <- factor(rep(c("March", "April", "May", "June", "July"),2),
-#                        levels = c("March", "April", "May", "June", "July"))
-# 
-# mort_counts <- ggplot(data=counts, aes(month, total_death))+
-#                       geom_col(colour="black", fill="#3b5a9d")+
-#                       facet_wrap(~group)+
-#                       labs(x="Month", y = "Count of Deaths")
-#
-
-
-
 
 #######
 # Integrate with STP shapefiles.
 #######
 
 ### read in file linking lsoa to stp
+# available from https://geoportal.statistics.gov.uk/datasets/520e9cd294c84dfaaf97cc91494237ac_0
+
 lsoa_ccg <- read_csv("lsoa_ccg.csv") %>% 
   select(LSOA11CD, LSOA11NM, LAD19CD, LAD19NM, STP19CD, STP19NM)
 ### stps are for england for wales there are health boards
@@ -104,10 +93,12 @@ wales_healthboard <- inner_join(wales_healthboard, area_lookups, by = c("LAD17CD
 lsoa_ccg <- bind_rows(lsoa_ccg,wales_healthboard)
 
 #### read in the IMD data and join to stp data
+# available from https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/833970/File_1_-_IMD2019_Index_of_Multiple_Deprivation.xlsx 
 IMD <- read_csv("IMD.csv")
 lsoa_ccg <- left_join(lsoa_ccg, IMD, by = c("LSOA11CD" = "LSOA code (2011)"))
 
 ### read in UK IMD and also join
+# available from https://data.bris.ac.uk/data/dataset/1ef3q32gybk001v77c1ifmty7x
 UKIMD <- read_csv("UK_IMD_scores.csv") %>%
   select(area_code, uk_imd_england_score)
 lsoa_ccg <- left_join(lsoa_ccg, UKIMD, by = c("LSOA11CD" = "area_code"))
@@ -127,6 +118,7 @@ stp_imd <- lsoa_ccg %>%
 
 
 ### read in file linking msoa to lsoa
+# available from https://geoportal.statistics.gov.uk/datasets/ons::oa-to-lad-to-lsoa-to-msoa-to-lep-overlapping-part-april-2020-lookup-in-england-partial-coverage/about
 msoa_lsoa <- read_csv("OAtoLSOAtoMSOAtoLAD.csv") %>% 
   distinct(LSOA11CD, .keep_all = T) %>% 
   select(LSOA11CD,MSOA11CD, MSOA11NM,LAD17CD, LAD17NM, RGN11CD,RGN11NM)
@@ -188,16 +180,17 @@ areas <- left_join(msoa_lsoa,msoa_stp, by = "MSOA11CD") %>%
   filter(RGN11NM != "Scotland")
 
 
-### Join with MSOA deaths data
-mort <- read_csv("MSOAmort.csv")
-mortareas <- left_join(mort,areas, by = c("cd"  = "MSOA11CD"))
+###############################
+# Care Homes spatial matching #
+###############################
 
-#### add care home data
-care_homes <- st_read("Geolytix_UK_Care_Homes_2020.shp")
+#### add care home data (available from https://covid19.esriuk.com/datasets/e4ffa672880a4facaab717dea3cdc404_0)
+care_homes <- st_read("Geolytix_Carehomes/Geolytix_UK_Care_Homes_2020.shp")
 #### transform to british national grid to match with msoa data
 care_homes <- st_transform(care_homes,27700)
-### read in msoa shapefile
-msoa <- st_read("Middle_Layer_Super_Output_Areas__December_2011__Boundaries.shp")
+
+### read in msoa shapefile (available from https://geoportal.statistics.gov.uk/datasets/826dc85fb600440889480f4d9dbb1a24_0)
+msoa <- st_read("MSOA_shapefiles/Middle_Layer_Super_Output_Areas_(December_2011)_Boundaries.shp")
 ### join each care home with an msoa
 data <- st_join(care_homes, msoa, join = st_within)
 
@@ -218,6 +211,8 @@ care_home_msoa <- left_join(msoa, care_home_msoa, by = "msoa11cd") %>%
 
 #### join this with the rest of the data
 mortareas <- left_join(mortareas, care_home_msoa, by = c("cd" = "MSOA11CD"))
+
+
 
 ### write to csv
 write_csv(mortareas, "model_data_ukimd.csv")
