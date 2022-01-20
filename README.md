@@ -1,5 +1,4 @@
-This code generates the data files for analyses used in Griffith et al. 2021 (Structural Inequalities in COVID-19 mortality in England and Wales, JECH, forthcoming). 
-The preprint of the paper is available on medrxiv [here]("medrxiv.org/content/10.1101/2021.02.15.21251771v1").
+This code generates the data files for analyses used in Griffith et al. 2021 (<a href="https://jech.bmj.com/content/75/12/1165">Structural Inequalities in COVID-19 mortality in England and Wales, JECH</a>).
 
 00_data_reshaping.R constructs the dataset reqeuired for the analyses, and contains links to the locations of the data itself. 
 
