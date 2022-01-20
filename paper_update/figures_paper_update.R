@@ -418,9 +418,9 @@ deathplot <- ggplot(data=fixed_tot,
 
 
 
-#########
-# Plots #
-#########
+#############
+# IMD Plots #
+#############
 
 IMDplot <- ggplot(data=fixed_tot, 
                   aes(x=date, y=SDOR,
@@ -443,6 +443,74 @@ IMDplot <- ggplot(data=fixed_tot,
 IMDplot
 
 ggsave("IMD_combined_mort.png", dpi=350)
+
+#
+#############################
+# Generating Residual Plots #
+#############################
+
+resids <- read.csv("cov_noIMD_region_resids.csv")
+
+# Keep only residuals and names and rename something sensible
+resids <- resids[,1:15]
+colnames(resids) <- c("Region", "Mar20", "Apr20", "May20", "Jun20", "July20", "Aug20", "Sep20", "Oct20", "Nov20", "Dec20", "Jan21", "Feb21", "Mar21", "Apr21")
+
+# Pivot to long-stack regions and create month indicator
+resid_longer <- resids %>%
+  pivot_longer(
+    cols = !Region,
+    names_to = "month",
+    values_to = "resid"
+  )
+
+#Generate initial date, and date variable for offsets from this in months
+
+resid_longer$month <- rep(3:16, 10)
+
+date <- dmy("11/12/2019")
+resid_longer$date <- ymd(date %m+% months(as.numeric(resid_longer$month)))
+
+
+# Add study dates for annotation
+dates <- read.csv("../studyDates.csv")
+dates$StartDate <- dates$StartDate %>% dmy()
+dates$EndDate <- dates$EndDate %>% dmy()
+colnames <- c("Period", "Start", "End")
+colnames(dates) <- colnames
+dates$Period <- factor(dates$Period, levels=c(1,2,3,4))
+
+Tol_muted <- c('#88CCEE', '#44AA99', '#117733', '#332288', '#DDCC77', '#999933','#CC6677', '#882255', '#AA4499', '#D55E00')
+
+
+# Order regions by Apri21 residuals
+ordered <- (resid_longer %>% group_by(Region) %>% filter(date==max(date)) %>% arrange(-resid))$Region
+resid_longer$Region <- factor(resid_longer$Region, levels=c(ordered))
+#Plot output
+
+residsPlot <- ggplot(data=resid_longer,
+                     aes(x=date,y=exp(resid), group=Region, colour=Region))+
+  geom_line(size=2)+
+  scale_color_discrete(type=Tol_muted)+
+  ylab("Region Rate Ratio")+
+  labs(fill="Region")+
+  xlab("Date")+
+  geom_hline(yintercept = 1, colour="black", linetype=1, alpha=0.4)+
+  coord_trans(y="log2")+
+  scale_y_continuous(limits=c(0.25, 5),breaks=c(0.5, 1, 2, 4), expand=c(0,0))+
+  scale_x_date(date_labels = "%b %y")+
+  theme(panel.grid.minor.y = element_blank())#+
+#geom_vline(xintercept = as.numeric(ymd(c(dates$End[1:3]))), linetype=2, alpha=0.6)
+
+annot_residsPlot <- residsPlot +
+  # annotate("rect", xmin=dates$Start[1], xmax=dates$End[1], ymin=0.25, ymax=Inf, alpha=0.10, fill="#1b9e77")+
+  # annotate("rect", xmin=dates$Start[2], xmax=dates$End[2], ymin=0.25, ymax=Inf, alpha=0.10, fill="#d95f02")+
+  annotate("rect", xmin=dates$Start[3], xmax=dates$End[3], ymin=0.25, ymax=Inf, alpha=0.2, fill="#7570b3")#+
+# annotate("rect", xmin=dates$Start[4], xmax=dates$End[4], ymin=0.25, ymax=Inf, alpha=0.10, fill="#e7298a")
+
+annot_residsPlot
+
+ggsave("region_resids.png", dpi=360)
+
 
 
 
